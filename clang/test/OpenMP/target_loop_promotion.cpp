@@ -39,19 +39,19 @@
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -triple amdgcn-amd-amdhsa \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-is-target-device \
 // RUN:   -fopenmp-host-ir-file-path %t-host.bc \
-// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,STRIDED
+// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,GRIDSTRIDE
 
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -triple amdgcn-amd-amdhsa \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-is-target-device \
 // RUN:   -fopenmp-host-ir-file-path %t-host.bc \
 // RUN:   -fopenmp-assume-teams-oversubscription \
-// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,STRIDED
+// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,GRIDSTRIDE
 
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -triple amdgcn-amd-amdhsa \
 // RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-is-target-device \
 // RUN:   -fopenmp-host-ir-file-path %t-host.bc \
 // RUN:   -fopenmp-assume-threads-oversubscription \
-// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,STRIDED
+// RUN:   -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,GRIDSTRIDE
 
 // expected-no-diagnostics
 
@@ -175,7 +175,7 @@ void promotable_no_loop(int *array, int n, int c) {
     array[i] = i + 1;
 }
 
-void promotable_strided(int *array) {
+void promotable_grid_stride(int *array) {
 #pragma omp target teams distribute parallel for num_teams(3)
   for (int i = 0; i < 1024; ++i)
     array[i] = i + 1;
@@ -272,18 +272,18 @@ void promotable_after_reduction(int *array) {
 #endif
 
 // NOLOOP-COUNT-19: promotable_no_loop{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 6
-// NOLOOP-COUNT-2: promotable_strided{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
+// NOLOOP-COUNT-2: promotable_grid_stride{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
 // NOLOOP-COUNT-11: non_promotable{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
 // NOLOOP: non_promotable{{.*}}_kernel_environment {{.*}} i8 1, i8 1, i8 1
 // NOLOOP: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
 // NOLOOP: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 6
 
-// STRIDED-COUNT-19: promotable_no_loop{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
-// STRIDED-COUNT-2: promotable_strided{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
-// STRIDED-COUNT-11: non_promotable{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
-// STRIDED: non_promotable{{.*}}_kernel_environment {{.*}} i8 1, i8 1, i8 1
-// STRIDED: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
-// STRIDED: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
+// GRIDSTRIDE-COUNT-19: promotable_no_loop{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
+// GRIDSTRIDE-COUNT-2: promotable_grid_stride{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
+// GRIDSTRIDE-COUNT-11: non_promotable{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
+// GRIDSTRIDE: non_promotable{{.*}}_kernel_environment {{.*}} i8 1, i8 1, i8 1
+// GRIDSTRIDE: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 2
+// GRIDSTRIDE: promotable_after_reduction{{.*}}_kernel_environment {{.*}} i8 0, i8 1, i8 10
 
 // reduction before a promoted kernel
 // CHECK: @llvm.compiler.used = {{.*}}$ref
@@ -306,7 +306,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l65_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l65_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l65_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -316,7 +316,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: store i32 1024, ptr %i
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l69_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l69_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l69_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -325,7 +325,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l73_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l73_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l73_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.exit:
 // CHECK-NEXT: br label %omp_loop.after
 // CHECK: omp_loop.after:
@@ -338,7 +338,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: [[LAST:%.*]] = load i32, ptr %.capture_expr.1.ascast
 // CHECK-NEXT: [[TC:%.*]] = add nsw i32 [[LAST]], 1
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l77_{{.*}}, i32 [[TC]], i32 %{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l77_{{.*}}, i32 [[TC]], i32 %{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l77_{{.*}}, i32 [[TC]], i32 %{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -348,7 +348,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: ret void
 // CHECK: store ptr %tmp1.ascast, ptr addrspace(5) %gep_tmp1.ascast
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l83_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l83_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l83_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 // CHECK: store i32 {{.*}}, ptr %loadgep_tmp1.ascast
@@ -361,7 +361,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: [[FIELD:%.*]] = getelementptr inbounds nuw %class.anon, ptr [[SET]], i32 0, i32 0
 // CHECK-NEXT: store ptr %array.addr.ascast, ptr [[FIELD]]
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l92_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l92_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l92_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -372,7 +372,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: @__kmpc_free_shared(ptr %i{{.*}})
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l99_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l99_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l99_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: @__kmpc_barrier
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
@@ -383,7 +383,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: @__kmpc_free_shared(ptr %last{{.*}})
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l106_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l106_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l106_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: @__kmpc_barrier
 // CHECK: store {{.*}}, ptr %last.
 // CHECK-NEXT: %.omp.lastprivate.done
@@ -394,7 +394,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: @__kmpc_free_shared(ptr %last{{.*}})
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l115_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l115_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l115_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK-NOT: @__kmpc_barrier
 // CHECK: store {{.*}}, ptr %last.
 // CHECK-NEXT: %.omp.lastprivate.done
@@ -405,7 +405,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: store i32 1024, ptr %i
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l124_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l124_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l124_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -414,7 +414,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l129_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l129_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l129_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -423,7 +423,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l133_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l133_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l133_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -432,7 +432,7 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l140_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l140_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l140_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
@@ -441,12 +441,12 @@ void promotable_after_reduction(int *array) {
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // NOLOOP: @__kmpc_distribute_for_static_loop_4u({{.*}}_l147_{{.*}}, i32 0, i32 0, i8 1)
-// STRIDED: @__kmpc_distribute_for_static_loop_4u({{.*}}_l147_{{.*}}, i32 0, i32 0, i8 0)
+// GRIDSTRIDE: @__kmpc_distribute_for_static_loop_4u({{.*}}_l147_{{.*}}, i32 0, i32 0, i8 0)
 // CHECK: omp_loop.after:
 // CHECK-NEXT: ret void
 
 // num_teams(3)
-// CHECK-LABEL: @__kmpc_parallel_60({{.*}}promotable_strided{{.*}}_l179_{{.*}})
+// CHECK-LABEL: @__kmpc_parallel_60({{.*}}promotable_grid_stride{{.*}}_l179_{{.*}})
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // CHECK: @__kmpc_distribute_for_static_loop_4u({{.*}}_l179_{{.*}}, i32 0, i32 0, i8 0)
@@ -454,7 +454,7 @@ void promotable_after_reduction(int *array) {
 // CHECK-NEXT: ret void
 
 // num_teams(3)
-// CHECK-LABEL: @__kmpc_parallel_60({{.*}}promotable_strided{{.*}}_l183_{{.*}})
+// CHECK-LABEL: @__kmpc_parallel_60({{.*}}promotable_grid_stride{{.*}}_l183_{{.*}})
 // CHECK: omp.loop.exit:
 // CHECK-NEXT: ret void
 // CHECK: @__kmpc_distribute_for_static_loop_4u({{.*}}_l183_{{.*}}, i32 0, i32 0, i8 0)
