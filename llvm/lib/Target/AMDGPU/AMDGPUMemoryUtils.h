@@ -113,6 +113,27 @@ bool isReallyAClobber(const Value *Ptr, MemoryDef *Def, AAResults *AA);
 bool isClobberedInFunction(const LoadInst *Load, MemorySSA *MSSA,
                            AAResults *AA);
 
+/// Convert \p GV, an LDS-like variable (such as  a named barrier), to an
+/// external declaration so that the linker can allocate there. A declaration
+/// cannot be in a comdat, so this also removes \p GV from its comdat.
+inline void externalizeLDSGlobalForObjectLinking(GlobalVariable &GV) {
+  assert(GV.getAddressSpace() == AMDGPUAS::LOCAL_ADDRESS ||
+         GV.getAddressSpace() == AMDGPUAS::BARRIER);
+  GV.setInitializer(nullptr);
+  GV.setLinkage(GlobalValue::ExternalLinkage);
+  GV.setComdat(nullptr);
+}
+
+/// Record in the amdgpu.lds.uses metadata that \p F uses the LDS variable
+/// \p GV.
+inline void recordLDSUseForObjectLinking(Function &F, GlobalVariable &GV) {
+  assert(F.getParent() == GV.getParent());
+  NamedMDNode *LDSMD =
+      F.getParent()->getOrInsertNamedMetadata("amdgpu.lds.uses");
+  LDSMD->addOperand(MDNode::get(
+      F.getContext(), {ValueAsMetadata::get(&F), ValueAsMetadata::get(&GV)}));
+}
+
 } // end namespace AMDGPU
 
 } // end namespace llvm
